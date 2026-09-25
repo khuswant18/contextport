@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "npm install --prefix server --omit=dev --no-audit --no-fund && npm install --prefix site --no-audit --no-fund && npm install --prefix extension --no-audit --no-fund",
+  "installCommand": "npm install --prefix server --omit=dev --no-audit --no-fund && npm install --prefix site --include=dev --no-audit --no-fund && npm install --prefix extension --include=dev --no-audit --no-fund",
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "site/dist",
   "functions": {
