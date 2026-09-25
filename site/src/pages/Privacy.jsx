@@ -54,6 +54,13 @@ export default function Privacy() {
           in Settings → Privacy &amp; data. Brief ratings (thumbs up/down and reasons like “missing code”) work the same way.
         </p>
 
+        <h2>Website analytics</h2>
+        <p>
+          This website uses Vercel Web Analytics to count page views. It uses no cookies and doesn’t track you across sites; it records the
+          page path, referrer, country and device type. Share-link pages and the admin page are never reported, and links are sent without
+          anything after the “?” or “#”. The extension itself doesn’t use it.
+        </p>
+
         <h2>Invites</h2>
         <p>Invite codes are random and linked only to an anonymous install. We store which install invited which, to add bonus transfers.</p>
 

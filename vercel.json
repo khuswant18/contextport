@@ -9,7 +9,7 @@
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/handler?__p=:path*" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|_vercel/).*)", "destination": "/index.html" }
   ],
   "crons": [{ "path": "/api/cron/prune", "schedule": "0 3 * * *" }],
   "headers": [
