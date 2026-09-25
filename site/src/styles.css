@@ -102,26 +102,14 @@ img { max-width: 100%; display: block; }
 .pill { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 9999px; background: var(--strong); font-size: 12px; font-weight: 600; letter-spacing: .96px; text-transform: uppercase; }
 @media (max-width: 640px) { .hero { padding: 56px 0 48px; } .hero-ctas .btn { width: 100%; } }
 
-/* product mock */
-.mock-wrap { position: relative; z-index: 1; margin: 56px auto 0; max-width: 980px; }
-.mock { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; border-radius: 24px; background: var(--card); border: 1px solid var(--hairline); box-shadow: 0 30px 80px rgba(12,10,9,.10); overflow: hidden; text-align: left; }
-.mock-chat { padding: 28px; border-right: 1px solid var(--hairline); display: grid; gap: 14px; align-content: start; background: var(--canvas-soft); }
-.bubble { padding: 12px 14px; border-radius: 16px; font-size: 14px; color: var(--body); line-height: 1.5; }
-.bubble.u { background: var(--strong); color: var(--ink); justify-self: end; max-width: 85%; }
-.bubble.a { background: transparent; padding-left: 0; }
-.bubble code { font-family: var(--mono); font-size: 12.5px; }
-.mock-code { font: 12px/1.6 var(--mono); background: var(--card); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 14px; color: var(--ink); overflow: hidden; white-space: pre; }
-.mock-sheet { padding: 24px; display: grid; gap: 14px; align-content: start; }
-.mock-sheet h3 { font-family: var(--serif); font-weight: 300; font-size: 26px; margin: 2px 0 0; letter-spacing: -0.3px; }
-.mock-dests { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.mock-dest { border: 1px solid var(--hairline); border-radius: 14px; padding: 10px; font-size: 13px; font-weight: 500; display: grid; gap: 8px; }
-.mock-dest.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
-.mono { width: 24px; height: 24px; border-radius: 50%; background: var(--strong); display: grid; place-items: center; font-size: 11px; font-weight: 600; }
-.mock-brief { border: 1px solid var(--hairline); border-radius: 14px; padding: 14px; font-size: 13px; color: var(--body); display: grid; gap: 4px; }
-.mock-brief b { font-size: 11px; font-weight: 600; letter-spacing: .9px; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
-.mock-go svg { width: 16px; height: 16px; }
-.mock-go { height: 42px; border-radius: 9999px; background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 14px; gap: 8px; }
-@media (max-width: 800px) { .mock { grid-template-columns: 1fr; } .mock-chat { border-right: 0; border-bottom: 1px solid var(--hairline); } }
+/* hero demo video */
+.hero-video { position: relative; z-index: 1; margin: 56px auto 0; max-width: 1080px; aspect-ratio: 16 / 9; border-radius: 24px; overflow: hidden; background: var(--card); border: 1px solid var(--hairline); box-shadow: 0 30px 80px rgba(12,10,9,.14); }
+.hero-video video { display: block; width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+.video-toggle { position: absolute; right: 14px; bottom: 14px; width: 42px; height: 42px; border: 0; border-radius: 9999px; display: grid; place-items: center; background: rgba(12,10,9,.72); color: #fff; cursor: pointer; opacity: 0; transition: opacity .2s ease; backdrop-filter: blur(6px); }
+.video-toggle svg { width: 18px; height: 18px; }
+.hero-video:hover .video-toggle, .video-toggle:focus-visible { opacity: 1; }
+@media (hover: none) { .video-toggle { opacity: 1; } }
+@media (max-width: 640px) { .hero-video { margin-top: 36px; border-radius: 16px; } }
 
 /* sections */
 .section { padding: 96px 0; }

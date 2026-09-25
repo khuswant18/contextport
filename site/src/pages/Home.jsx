@@ -1,42 +1,62 @@
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../ui.jsx';
 import InstallGuide, { DownloadButton } from '../InstallGuide.jsx';
 
-function ProductMock() {
+/**
+ * The real product demo: autoplays muted and loops, but only while on screen,
+ * never when the visitor prefers reduced motion, and can always be paused.
+ */
+function HeroVideo() {
+  const ref = useRef(null);
+  const userPaused = useRef(false);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !userPaused.current) v.play().catch(() => {});
+        else if (!entry.isIntersecting) v.pause();
+      },
+      { threshold: 0.3 },
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, []);
+
+  const toggle = () => {
+    const v = ref.current;
+    if (v.paused) {
+      userPaused.current = false;
+      v.play().catch(() => {});
+    } else {
+      userPaused.current = true;
+      v.pause();
+    }
+  };
+
   return (
-    <div className="mock-wrap" aria-hidden="true">
-      <div className="mock">
-        <div className="mock-chat">
-          <div className="bubble u">My invoice PDFs show ₹ as a blank box and totals like 117.99999. Must stay on Vercel's free plan.</div>
-          <div className="bubble a">
-            Two issues. Your Inter file is the latin subset without U+20B9 — use the full TTF. For rounding, store money as integer paise:
-          </div>
-          <div className="mock-code">{`const toPaise = (r: number) => Math.round(r * 100);
-const fmt = (p: number) => '₹' + (p / 100)
-  .toLocaleString('en-IN', { minimumFractionDigits: 2 });`}</div>
-          <div className="bubble u">Should we migrate the Prisma money fields to Int now or later? We have ~2k invoices.</div>
-        </div>
-        <div className="mock-sheet">
-          <p className="eyebrow">Transfer from ChatGPT</p>
-          <h3>Continue this chat elsewhere</h3>
-          <div className="mock-dests">
-            <div className="mock-dest on"><span className="mono">Cl</span>Claude</div>
-            <div className="mock-dest"><span className="mono">Ge</span>Gemini</div>
-            <div className="mock-dest"><span className="mono">Px</span>Perplexity</div>
-          </div>
-          <div className="mock-brief">
-            <b>Goal</b>
-            <span>Fix ₹ rendering and float rounding in invoice PDFs, then decide on the paise migration.</span>
-            <b>Your requirements</b>
-            <span>Vercel free plan · no Redis · GST 18% as its own line</span>
-            <b>Where it stands</b>
-            <span>Font confirmed as a 98 KB subset; migration timing is the open question.</span>
-            <b>Code</b>
-            <span>3 blocks kept exactly</span>
-          </div>
-          <div className="mock-go">Open in Claude <Icon name="arrow" /></div>
-        </div>
-      </div>
-    </div>
+    <figure className="hero-video">
+      <video
+        ref={ref}
+        src="/media/contextport-demo.mp4"
+        poster="/media/contextport-demo-poster.jpg"
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        width="1600"
+        height="900"
+        aria-label="Demo: a ChatGPT conversation is turned into a brief and opened in Claude with one click"
+        onClick={toggle}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+      />
+      <button className="video-toggle" onClick={toggle} aria-label={playing ? 'Pause demo video' : 'Play demo video'}>
+        <Icon name={playing ? 'pause' : 'play'} />
+      </button>
+    </figure>
   );
 }
 
@@ -90,7 +110,7 @@ export default function Home() {
           </div>
         </div>
         <div className="wrap">
-          <ProductMock />
+          <HeroVideo />
         </div>
       </section>
 

@@ -152,6 +152,8 @@ const TYPES = {
   '.txt': 'text/plain; charset=utf-8',
   '.webp': 'image/webp',
   '.zip': 'application/zip',
+  '.mp4': 'video/mp4',
+  '.jpg': 'image/jpeg',
 };
 
 function serveStatic(req, res, url) {

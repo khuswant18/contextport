@@ -11,6 +11,8 @@ const PATHS = {
   code: ['M8 8l-4 4 4 4', 'M16 8l4 4-4 4', 'M14 5l-4 14'],
   eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
   download: ['M12 4v11', 'M7 10l5 5 5-5', 'M5 20h14'],
+  play: ['M8 5.5v13l10.5-6.5z'],
+  pause: ['M9 5.5v13', 'M15 5.5v13'],
 };
 
 export function Icon({ name }) {
