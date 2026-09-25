@@ -1,0 +1,18 @@
+{
+  "name": "contextport",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "build:site": "npm --prefix site run build",
+    "build:extension": "node extension/build.mjs",
+    "package:extension": "node extension/build.mjs && node tools/zip-dir.mjs extension/dist site/public/contextport-extension.zip",
+    "build": "npm run package:extension && npm run build:site",
+    "test": "node --test shared/test/*.test.js && npm --prefix server test",
+    "test:e2e": "node tests/e2e.mjs",
+    "vercel-build": "npm run package:extension && npm run build:site"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

@@ -1,0 +1,13 @@
+# Never upload secrets or local artifacts to Vercel.
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+extension/dist
+extension/dist-test
+site/dist
+tests
+store-assets
+tools/store-assets.mjs
+Dockerfile
+.dockerignore

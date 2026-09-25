@@ -1,0 +1,35 @@
+# ── Secrets: never commit ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vercel/
+
+# ── Dependencies ──────────────────────────────────────────────────────
+node_modules/
+
+# ── Build output (rebuilt by `npm run build` / Vercel) ────────────────
+dist/
+extension/dist/
+extension/dist-test/
+site/dist/
+site/public/contextport-extension.zip
+*.zip
+*.crx
+
+# ── Tests & local tooling ─────────────────────────────────────────────
+test-results/
+playwright-report/
+tests/.profile*/
+tests/artifacts/
+coverage/
+*.log
+npm-debug.log*
+
+# ── Editors & OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

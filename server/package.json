@@ -1,0 +1,17 @@
+{
+  "name": "contextport-server",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "dev": "node --watch --env-file=.env src/index.js",
+    "migrate": "node --env-file=.env src/migrate.js",
+    "test": "REGISTRATIONS_PER_IP_PER_HOUR=100 REGISTRATIONS_PER_IP_PER_DAY=100 node --env-file-if-exists=.env --test test/*.test.js"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}

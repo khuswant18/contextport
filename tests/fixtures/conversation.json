@@ -1,0 +1,46 @@
+[
+ {
+  "role": "user",
+  "content": "I'm building a SaaS invoice app with Next.js 15 (app router), Prisma 6 and Postgres on Neon. When I deploy to Vercel, the /api/invoices route randomly fails with \"PrismaClientInitializationError: Can't reach database server\". Locally it works fine. Must stay on Vercel's free plan and I don't want to add Redis."
+ },
+ {
+  "role": "assistant",
+  "content": "That error on Vercel usually means connection exhaustion: every serverless invocation opens new Prisma connections. Two fixes:\n\n1. Use Neon's **pooled** connection string (the `-pooler` host) for `DATABASE_URL`.\n2. Reuse a single PrismaClient across hot invocations:\n\n```ts\n// lib/db.ts\nimport { PrismaClient } from '@prisma/client';\nconst g = globalThis as unknown as { prisma?: PrismaClient };\nexport const prisma = g.prisma ?? new PrismaClient();\nif (process.env.NODE_ENV !== 'production') g.prisma = prisma;\n```\n\nAlso set `connection_limit=1` on the pooled URL."
+ },
+ {
+  "role": "user",
+  "content": "I switched to the pooler URL and added lib/db.ts. Now I get a different error: \"prepared statement \\\"s0\\\" already exists\". What is that?"
+ },
+ {
+  "role": "assistant",
+  "content": "That's PgBouncer in transaction mode not supporting prepared statements. Add `pgbouncer=true` to the pooled URL, and keep a direct (non-pooled) URL for migrations:\n\n```prisma\ndatasource db {\n  provider  = \"postgresql\"\n  url       = env(\"DATABASE_URL\")\n  directUrl = env(\"DIRECT_URL\")\n}\n```\n\n```bash\nDATABASE_URL=\"postgresql://user:pass@ep-xyz-pooler.neon.tech/db?sslmode=require&pgbouncer=true&connection_limit=1\"\nDIRECT_URL=\"postgresql://user:pass@ep-xyz.neon.tech/db?sslmode=require\"\n```"
+ },
+ {
+  "role": "user",
+  "content": "Fixed! Deploy works now. Next problem: invoice PDF generation with puppeteer times out after 10s on Vercel. I decided I don't want to pay for a bigger plan."
+ },
+ {
+  "role": "assistant",
+  "content": "Puppeteer + Chromium is too heavy for the 10s Hobby limit. Options:\n- Generate PDFs client-side with `@react-pdf/renderer`.\n- Or use `pdf-lib` server-side (no browser; fast).\n\nFor invoices, @react-pdf/renderer is the most practical since you already have React components."
+ },
+ {
+  "role": "user",
+  "content": "Let's go with @react-pdf/renderer, but the PDF must match our brand font \"Inter\" and support Indian rupee symbol ₹. Totals must show GST at 18% as a separate line."
+ },
+ {
+  "role": "assistant",
+  "content": "Here's an invoice document component:\n\n```tsx\n// components/InvoicePdf.tsx\nimport { Document, Page, Text, View, Font, StyleSheet } from '@react-pdf/renderer';\n\nFont.register({ family: 'Inter', src: '/fonts/Inter-Regular.ttf' });\n\nconst s = StyleSheet.create({ page: { fontFamily: 'Inter', padding: 32 }, row: { flexDirection: 'row', justifyContent: 'space-between' } });\n\nexport function InvoicePdf({ items }: { items: { name: string; amount: number }[] }) {\n  const subtotal = items.reduce((a, i) => a + i.amount, 0);\n  const gst = Math.round(subtotal * 0.18 * 100) / 100;\n  return (\n    <Document><Page style={s.page}>\n      {items.map((i) => (<View key={i.name} style={s.row}><Text>{i.name}</Text><Text>₹{i.amount.toFixed(2)}</Text></View>))}\n      <View style={s.row}><Text>GST (18%)</Text><Text>₹{gst.toFixed(2)}</Text></View>\n      <View style={s.row}><Text>Total</Text><Text>₹{(subtotal + gst).toFixed(2)}</Text></View>\n    </Page></Document>\n  );\n}\n```\n\nThe ₹ glyph renders because Inter includes it — the default Helvetica does not."
+ },
+ {
+  "role": "user",
+  "content": "The PDF renders, but the ₹ shows as a blank box in the downloaded file even with Inter. Also rounding: 0.1+0.2 style issues appear in totals like 117.99999."
+ },
+ {
+  "role": "assistant",
+  "content": "Two separate issues:\n\n1. **Blank ₹**: the Inter TTF you registered is probably the \"latin\" subset without U+20B9. Download the full Inter TTF (not the web subset) and register it with an absolute URL.\n2. **Rounding**: store money as integer paise, not floats.\n\n```ts\nconst toPaise = (rupees: number) => Math.round(rupees * 100);\nconst fmt = (paise: number) => '₹' + (paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 });\n```\n\nI haven't verified which Inter file you have; can you check the font file size? The full version is ~300KB."
+ },
+ {
+  "role": "user",
+  "content": "The font file is 98KB so it's the subset, you're right. I'll swap it. Before that: should we move money fields in Prisma to Int (paise) now, or later? We have ~2k invoices in production already."
+ }
+]
