@@ -106,6 +106,23 @@ const MIGRATIONS = [
    )`,
   `create index if not exists cp_events_day_name on cp_events(day, name)`,
   `create index if not exists cp_events_device on cp_events(device_id, day)`,
+  // Tag each install with the server it registered on, so local test runs
+  // never count as real users in /admin.
+  `alter table cp_devices add column if not exists env text not null default 'legacy'`,
+  `create index if not exists cp_devices_env_created on cp_devices(env, created_at)`,
+  // Extension downloads from the website: one per network per day.
+  `create table if not exists cp_download_seen (
+     day date not null default current_date,
+     ip_hash text not null,
+     env text not null,
+     primary key (day, ip_hash, env)
+   )`,
+  `create table if not exists cp_download_daily (
+     day date not null default current_date,
+     env text not null,
+     downloads integer not null default 0,
+     primary key (day, env)
+   )`,
   `create table if not exists cp_rate_limits (
      key text not null,
      window_start timestamptz not null,
@@ -127,4 +144,5 @@ export async function pruneOldUsage() {
   await query(`delete from cp_events where day < current_date - 180`);
   await query(`delete from cp_feedback where created_at < now() - interval '365 days'`);
   await query(`delete from cp_rate_limits where window_start < now() - interval '1 day'`);
+  await query(`delete from cp_download_seen where day < current_date - 2`);
 }

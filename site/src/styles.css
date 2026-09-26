@@ -251,6 +251,9 @@ img { max-width: 100%; display: block; }
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table td { padding: 8px 0; border-bottom: 1px solid var(--hairline); color: var(--body); text-transform: capitalize; }
 .table td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.table th { padding: 0 0 8px; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--hairline); }
+.table th.num { text-align: right; }
+.admin .grid-4 + .grid-4 { margin-top: 16px; }
 .admin h3 { margin: 0 0 10px; font-size: 16px; font-weight: 500; }
 .invite-callout { margin-top: 24px; }
 

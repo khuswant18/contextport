@@ -194,35 +194,98 @@ export function checkAdmin(req) {
   if (!crypto.timingSafeEqual(a, b)) throw new HttpError(401, 'Unauthorized');
 }
 
+/* ── downloads ────────────────────────────────────────────────────── */
+
+const STATS_ENV = () => (config.isProd ? 'production' : 'development');
+
+/** Counts a zip download once per network per day (IP stored only as a keyed hash). */
+export async function recordDownload(ipHash) {
+  const env = STATS_ENV();
+  const r = await query(`insert into cp_download_seen (ip_hash, env) values ($1, $2) on conflict do nothing`, [ipHash, env]);
+  if (r.rowCount) {
+    await query(
+      `insert into cp_download_daily (env, downloads) values ($1, 1)
+       on conflict (day, env) do update set downloads = cp_download_daily.downloads + 1`,
+      [env],
+    );
+  }
+}
+
+/* ── admin metrics (only installs registered on this server's environment) ── */
+
 export async function adminStats() {
-  const [installs, activation, retention, weekly, features, feedback, reasons, tokens] = await Promise.all([
-    query(`select day::text, count(*)::int as installs from (select created_at::date as day from cp_devices where created_at > now() - interval '30 days') d group by day order by day`),
-    // Activation: installs (8–30 days old) that made a transfer within 24h of installing.
-    query(`select count(*)::int as installs,
-                  count(*) filter (where exists (
-                    select 1 from cp_events e where e.device_id = d.id and e.name = 'handoff' and e.created_at < d.created_at + interval '24 hours'
-                  ))::int as activated
-           from cp_devices d where d.created_at between now() - interval '30 days' and now() - interval '1 day'`),
-    // D7 / D30 retention: any activity on/after day 7 (or 30) since install.
-    query(`select
-             count(*) filter (where d.created_at < now() - interval '7 days')::int as eligible7,
-             count(*) filter (where d.created_at < now() - interval '7 days' and exists (select 1 from cp_events e where e.device_id = d.id and e.created_at >= d.created_at + interval '7 days'))::int as retained7,
-             count(*) filter (where d.created_at < now() - interval '30 days')::int as eligible30,
-             count(*) filter (where d.created_at < now() - interval '30 days' and exists (select 1 from cp_events e where e.device_id = d.id and e.created_at >= d.created_at + interval '30 days'))::int as retained30
-           from cp_devices d where d.created_at > now() - interval '120 days'`),
-    query(`select count(*)::int as transfers, count(distinct device_id)::int as active_devices from cp_events where name = 'handoff' and day > current_date - 7`),
-    query(`select name, count(*)::int as n from cp_events where day > current_date - 7 group by name order by n desc`),
-    query(`select count(*) filter (where rating = 1)::int as up, count(*) filter (where rating = -1)::int as down from cp_feedback where created_at > now() - interval '30 days'`),
-    query(`select unnest(reasons) as reason, count(*)::int as n from cp_feedback where created_at > now() - interval '30 days' group by reason order by n desc`),
+  const env = STATS_ENV();
+  const [installs, downloads, totals, activation, retention, weekly, features, feedback, reasons, tokens] = await Promise.all([
+    query(`select created_at::date::text as day, count(*)::int as installs from cp_devices where env = $1 and created_at > now() - interval '30 days' group by 1 order by 1`, [env]),
+    query(`select day::text, downloads from cp_download_daily where env = $1 and day > current_date - 30 order by day`, [env]),
+    query(
+      `select (select count(*)::int from cp_devices where env = $1) as installs_total,
+              (select count(*)::int from cp_devices where env = $1 and created_at::date = current_date) as installs_today,
+              (select coalesce(sum(downloads), 0)::int from cp_download_daily where env = $1) as downloads_total,
+              (select coalesce(sum(downloads), 0)::int from cp_download_daily where env = $1 and day = current_date) as downloads_today`,
+      [env],
+    ),
+    // Activation: installs (1–30 days old) that made a transfer within 24h of installing.
+    query(
+      `select count(*)::int as installs,
+              count(*) filter (where exists (
+                select 1 from cp_events e where e.device_id = d.id and e.name = 'handoff' and e.created_at < d.created_at + interval '24 hours'
+              ))::int as activated
+         from cp_devices d where d.env = $1 and d.created_at between now() - interval '30 days' and now() - interval '1 day'`,
+      [env],
+    ),
+    query(
+      `select
+         count(*) filter (where d.created_at < now() - interval '7 days')::int as eligible7,
+         count(*) filter (where d.created_at < now() - interval '7 days' and exists (select 1 from cp_events e where e.device_id = d.id and e.created_at >= d.created_at + interval '7 days'))::int as retained7,
+         count(*) filter (where d.created_at < now() - interval '30 days')::int as eligible30,
+         count(*) filter (where d.created_at < now() - interval '30 days' and exists (select 1 from cp_events e where e.device_id = d.id and e.created_at >= d.created_at + interval '30 days'))::int as retained30
+       from cp_devices d where d.env = $1 and d.created_at > now() - interval '120 days'`,
+      [env],
+    ),
+    query(
+      `select count(*)::int as transfers, count(distinct e.device_id)::int as active_devices
+         from cp_events e join cp_devices d on d.id = e.device_id
+        where d.env = $1 and e.name = 'handoff' and e.day > current_date - 7`,
+      [env],
+    ),
+    query(
+      `select e.name, count(*)::int as n from cp_events e join cp_devices d on d.id = e.device_id
+        where d.env = $1 and e.day > current_date - 7 group by e.name order by n desc`,
+      [env],
+    ),
+    query(
+      `select count(*) filter (where f.rating = 1)::int as up, count(*) filter (where f.rating = -1)::int as down
+         from cp_feedback f join cp_devices d on d.id = f.device_id where d.env = $1 and f.created_at > now() - interval '30 days'`,
+      [env],
+    ),
+    query(
+      `select unnest(f.reasons) as reason, count(*)::int as n from cp_feedback f join cp_devices d on d.id = f.device_id
+        where d.env = $1 and f.created_at > now() - interval '30 days' group by reason order by n desc`,
+      [env],
+    ),
     query(`select requests, tokens::text from cp_global_daily where day = current_date`),
   ]);
   const a = activation.rows[0];
   const r = retention.rows[0];
   const w = weekly.rows[0];
+  const t = totals.rows[0];
   const f = feedback.rows[0];
   const pct = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : null);
+  // One row per day with both numbers.
+  const byDay = new Map();
+  for (const row of downloads.rows) byDay.set(row.day, { day: row.day, downloads: row.downloads, installs: 0 });
+  for (const row of installs.rows) byDay.set(row.day, { ...(byDay.get(row.day) || { day: row.day, downloads: 0 }), installs: row.installs });
   return {
-    installsByDay: installs.rows,
+    environment: env,
+    totals: {
+      installs: t.installs_total,
+      installsToday: t.installs_today,
+      downloads: t.downloads_total,
+      downloadsToday: t.downloads_today,
+      downloadToInstall: pct(t.installs_total, t.downloads_total),
+    },
+    installsByDay: [...byDay.values()].sort((x, y) => x.day.localeCompare(y.day)),
     activationRate: pct(a.activated, a.installs),
     retentionD7: pct(r.retained7, r.eligible7),
     retentionD30: pct(r.retained30, r.eligible30),

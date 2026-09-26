@@ -45,7 +45,7 @@ function CopyAddress() {
 
 export function DownloadButton({ label = 'Download the extension' }) {
   return (
-    <a className="btn primary" href="/contextport-extension.zip" download>
+    <a className="btn primary" href="/api/v1/download" download="contextport-extension.zip">
       <Icon name="download" />
       {label}
     </a>

@@ -40,6 +40,12 @@ export default function Admin() {
       {data && (
         <>
           <div className="grid-4">
+            <Stat label="Installs · all time" value={data.totals.installs.toLocaleString()} hint={`${data.totals.installsToday} today`} />
+            <Stat label="Downloads · all time" value={data.totals.downloads.toLocaleString()} hint={`${data.totals.downloadsToday} today · one per network per day`} />
+            <Stat label="Download → install" value={pct(data.totals.downloadToInstall)} hint="Installs ÷ downloads" />
+            <Stat label="Active users · 7 days" value={data.activeDevicesLast7d.toLocaleString()} hint="Made at least one transfer" />
+          </div>
+          <div className="grid-4">
             <Stat label="Activation" value={pct(data.activationRate)} hint="First transfer within 24h of install" />
             <Stat label="D7 retention" value={pct(data.retentionD7)} hint="Active again after a week" />
             <Stat label="D30 retention" value={pct(data.retentionD30)} hint="Active again after a month" />
@@ -77,12 +83,25 @@ export default function Admin() {
               </table>
             </div>
             <div className="card">
-              <h3>Installs · last 30 days</h3>
+              <h3>Downloads & installs · last 30 days</h3>
               <table className="table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th className="num">Downloads</th>
+                    <th className="num">Installs</th>
+                  </tr>
+                </thead>
                 <tbody>
+                  {data.installsByDay.length === 0 && (
+                    <tr>
+                      <td colSpan={3}>No downloads or installs yet.</td>
+                    </tr>
+                  )}
                   {data.installsByDay.map((r) => (
                     <tr key={r.day}>
                       <td>{r.day}</td>
+                      <td className="num">{r.downloads}</td>
                       <td className="num">{r.installs}</td>
                     </tr>
                   ))}

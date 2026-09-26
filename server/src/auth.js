@@ -32,7 +32,7 @@ export async function registerDevice(ip) {
 
   const token = `cp_${crypto.randomBytes(32).toString('base64url')}`;
   const id = crypto.randomUUID();
-  await query(`insert into cp_devices (id, token_hash, ip_hash) values ($1, $2, $3)`, [id, hashToken(token), ipHash]);
+  await query(`insert into cp_devices (id, token_hash, ip_hash, env) values ($1, $2, $3, $4)`, [id, hashToken(token), ipHash, config.isProd ? 'production' : 'development']);
   return { token };
 }
 

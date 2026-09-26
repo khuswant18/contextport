@@ -7,13 +7,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from './config.js';
 import { HttpError, readJson, sendJson, baseSecurityHeaders, clientIp, RateLimiter, SITE_CSP } from './http.js';
-import { registerDevice, authenticate } from './auth.js';
+import { registerDevice, authenticate, hashIp } from './auth.js';
 import { reserveDeviceRequest, refundDeviceRequest, assertGlobalBudget, recordTokens, getUsage } from './quota.js';
 import { hostedComplete } from './groq.js';
 import { createBrief } from '../../shared/pipeline.js';
 import { PLATFORM_IDS, LIMITS, DETAIL_LEVELS } from '../../shared/constants.js';
 import { DbRateLimiter } from './ratelimit.js';
-import { createShare, readShare, deleteShare, getReferral, redeemReferral, recordFeedback, recordEvents, checkAdmin, adminStats } from './growth.js';
+import { createShare, readShare, deleteShare, getReferral, redeemReferral, recordFeedback, recordEvents, checkAdmin, adminStats, recordDownload } from './growth.js';
 
 // Cheap per-instance flood guard; the limits that protect money and abuse
 // live in Postgres so they also hold on serverless hosts.
@@ -45,6 +45,13 @@ async function handleApi(req, res, url) {
   const shareMatch = SHARE_PATH.exec(url.pathname);
   if (shareMatch && req.method === 'GET') {
     return sendJson(res, 200, await readShare(shareMatch[1]));
+  }
+  // Website download button: count it, then hand over the zip. Counting must
+  // never block the download.
+  if (url.pathname === '/api/v1/download' && (req.method === 'GET' || req.method === 'HEAD')) {
+    if (req.method === 'GET') await recordDownload(hashIp(ip)).catch((err) => console.warn('[download] not counted:', err.message));
+    res.writeHead(302, { Location: '/contextport-extension.zip', 'Cache-Control': 'no-store' });
+    return res.end();
   }
   if (url.pathname === '/api/v1/admin/stats' && req.method === 'GET') {
     checkAdmin(req);
