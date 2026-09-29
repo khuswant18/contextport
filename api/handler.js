@@ -26,17 +26,24 @@ function secretMatches(given, expected) {
 }
 
 export default async function handler(req, res) {
+  // Rewrites deliver /api/handler?__p=<rest>; restore the original path.
+  const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/api/handler') {
     const rest = url.searchParams.get('__p') || '';
     url.searchParams.delete('__p');
-    req.url = `/api/${rest}${url.search}`;
+    req.url = `/api/${rest}${url.search ? url.search : ''}`;
   }
+
+  // Fast path for download: counting is best-effort and must never block handing over the zip.
+  const isDownload = req.url.startsWith('/api/v1/download');
 
   try {
     await init();
   } catch (err) {
     console.error('[init] failed:', err.message);
-    return sendJson(res, 503, { error: 'ContextPort AI is starting up. Please try again in a moment.' });
+    if (!isDownload) {
+      return sendJson(res, 503, { error: 'ContextPort AI is starting up. Please try again in a moment.' });
+    }
   }
 
   if (req.url.split('?')[0] === '/api/cron/prune') {

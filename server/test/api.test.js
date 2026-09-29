@@ -89,8 +89,8 @@ test('input validation: content type, JSON, size, shape', async () => {
 
 test('per-device burst limit returns 429', async () => {
   const token = await register();
-  const statuses = [];
-  for (let i = 0; i < 8; i++) statuses.push((await brief(token, '{bad')).status);
+  const res = await Promise.all(Array.from({ length: 8 }, () => brief(token, '{bad')));
+  const statuses = res.map((r) => r.status);
   assert.ok(statuses.includes(429), statuses.join(','));
 });
 

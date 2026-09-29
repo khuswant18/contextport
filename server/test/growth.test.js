@@ -152,3 +152,17 @@ test('admin stats require the admin token', async () => {
   const j = await r.json();
   assert.ok('activationRate' in j && 'retentionD7' in j && Array.isArray(j.featureUseLast7d));
 });
+
+test('download route redirects to zip and increments download counter', async () => {
+  const r = await fetch(`${base}/api/v1/download`, { redirect: 'manual' });
+  assert.equal(r.status, 302);
+  assert.equal(r.headers.get('location'), '/contextport-extension.zip');
+
+  const zip = await fetch(`${base}/api/v1/download`);
+  assert.equal(zip.status, 200);
+  assert.equal(zip.headers.get('content-type'), 'application/zip');
+  assert.match(zip.headers.get('content-disposition') || '', /contextport-extension\.zip/);
+  const buf = await zip.arrayBuffer();
+  assert.ok(buf.byteLength > 1000);
+});
+

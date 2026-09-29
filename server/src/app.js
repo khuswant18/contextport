@@ -177,6 +177,14 @@ function serveStatic(req, res, url) {
   if (file !== root && !file.startsWith(root + path.sep)) throw new HttpError(404, 'Not found');
 
   let stat = fs.statSync(file, { throwIfNoEntry: false });
+  if ((!stat || !stat.isFile()) && rel === '/contextport-extension.zip') {
+    const publicZip = path.resolve(root, '../public/contextport-extension.zip');
+    const publicStat = fs.statSync(publicZip, { throwIfNoEntry: false });
+    if (publicStat?.isFile()) {
+      file = publicZip;
+      stat = publicStat;
+    }
+  }
   if (stat?.isDirectory()) {
     file = path.join(file, 'index.html');
     stat = fs.statSync(file, { throwIfNoEntry: false });
