@@ -184,14 +184,120 @@ export async function recordEvents(deviceId, body) {
 
 /* ── admin metrics ─────────────────────────────────────────────────── */
 
+const ADMIN_COOKIE = 'cp_admin';
+
+function sameSecret(given, expected) {
+  const a = crypto.createHash('sha256').update(String(given)).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+/** Session signing key; changing the username or password signs everyone out. */
+function sessionKey() {
+  return crypto.createHmac('sha256', config.ipHashSecret).update(`admin-session:${config.adminUsername}:${config.adminPassword}`).digest();
+}
+
+function signSession(expires) {
+  return crypto.createHmac('sha256', sessionKey()).update(`admin:${expires}`).digest('base64url');
+}
+
+function readCookie(req, name) {
+  for (const part of (req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return '';
+}
+
+function cookie(value, maxAge) {
+  // Scoped to the admin API, invisible to page scripts, never sent cross-site.
+  return `${ADMIN_COOKIE}=${value}; Path=/api/v1/admin; Max-Age=${maxAge}; HttpOnly; SameSite=Strict${config.isProd ? '; Secure' : ''}`;
+}
+
+/** Checks the username and password; returns the Set-Cookie header for a signed session. */
+export function adminLogin(body) {
+  const userOk = sameSecret(typeof body.username === 'string' ? body.username : '', config.adminUsername);
+  const passOk = sameSecret(typeof body.password === 'string' ? body.password : '', config.adminPassword);
+  if (!userOk || !passOk || !config.adminPassword) throw new HttpError(401, 'Wrong username or password');
+  const maxAge = config.adminSessionHours * 3600;
+  const expires = Math.floor(Date.now() / 1000) + maxAge;
+  return cookie(`${expires}.${signSession(expires)}`, maxAge);
+}
+
+export function adminLogoutCookie() {
+  return cookie('', 0);
+}
+
+/** Allows a signed-in admin session (cookie) or, for scripts, `Authorization: Bearer <ADMIN_TOKEN>`. */
 export function checkAdmin(req) {
   const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  const expected = config.adminToken;
-  if (!expected || expected.length < 32) throw new HttpError(404, 'Not found');
-  const a = crypto.createHash('sha256').update(token).digest();
-  const b = crypto.createHash('sha256').update(expected).digest();
-  if (!crypto.timingSafeEqual(a, b)) throw new HttpError(401, 'Unauthorized');
+  if (header.startsWith('Bearer ') && config.adminToken.length >= 32 && sameSecret(header.slice(7), config.adminToken)) return;
+
+  const m = /^(\d{1,12})\.([A-Za-z0-9_-]{43})$/.exec(readCookie(req, ADMIN_COOKIE));
+  if (m && Number(m[1]) > Date.now() / 1000 && config.adminPassword && sameSecret(m[2], signSession(m[1]))) return;
+  throw new HttpError(401, 'Unauthorized');
+}
+
+/* ── website traffic ──────────────────────────────────────────────── */
+
+const TRACKED_PATHS = new Set(['/', '/install', '/help', '/privacy', '/terms']);
+const BOT_UA = /bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit/i;
+
+/** Maps a site path to a fixed route name so share IDs and junk never reach the database. */
+function trafficPath(raw) {
+  if (typeof raw !== 'string' || raw.length > 512) throw new HttpError(400, 'Invalid path');
+  const p = raw.replace(/\/+$/, '') || '/';
+  if (TRACKED_PATHS.has(p)) return p;
+  if (/^\/s\/[A-Za-z0-9_-]{22}$/.test(p)) return '/s/*';
+  if (p === '/admin') return null;
+  return '/404';
+}
+
+/** Referring site's hostname only; null for direct visits and our own pages. */
+function referrerHost(raw, siteHost) {
+  if (typeof raw !== 'string' || !raw || raw.length > 2048) return null;
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+  const host = url.hostname.toLowerCase().replace(/^www\./, '');
+  if (!/^[a-z0-9.-]{1,100}$/.test(host)) return null;
+  if (host === String(siteHost || '').toLowerCase().replace(/:\d+$/, '').replace(/^www\./, '')) return null;
+  return host;
+}
+
+/** Counts one page view; unique visitors are one per network per day (IP stored only as a keyed hash). */
+export async function recordPageView(ipHash, body, { userAgent, siteHost }) {
+  if (BOT_UA.test(userAgent || '')) return;
+  const path = trafficPath(body.path);
+  if (!path) return;
+  const env = STATS_ENV();
+  const host = referrerHost(body.ref, siteHost);
+  await Promise.all([
+    query(`insert into cp_visit_seen (ip_hash, env) values ($1, $2) on conflict do nothing`, [ipHash, env]).then((r) =>
+      r.rowCount
+        ? query(
+            `insert into cp_visitor_daily (env, visitors) values ($1, 1)
+             on conflict (day, env) do update set visitors = cp_visitor_daily.visitors + 1`,
+            [env],
+          )
+        : null,
+    ),
+    query(
+      `insert into cp_pageview_daily (env, path, views) values ($1, $2, 1)
+       on conflict (day, env, path) do update set views = cp_pageview_daily.views + 1`,
+      [env, path],
+    ),
+    host &&
+      query(
+        `insert into cp_referrer_daily (env, host, visits) values ($1, $2, 1)
+         on conflict (day, env, host) do update set visits = cp_referrer_daily.visits + 1`,
+        [env, host],
+      ),
+  ]);
 }
 
 /* ── downloads ────────────────────────────────────────────────────── */
@@ -215,7 +321,7 @@ export async function recordDownload(ipHash) {
 
 export async function adminStats() {
   const env = STATS_ENV();
-  const [installs, downloads, totals, activation, retention, weekly, features, feedback, reasons, tokens] = await Promise.all([
+  const [installs, downloads, totals, activation, retention, weekly, features, feedback, reasons, tokens, traffic, visitorsByDay, viewsByDay, pages, referrers] = await Promise.all([
     query(`select created_at::date::text as day, count(*)::int as installs from cp_devices where env = $1 and created_at > now() - interval '30 days' group by 1 order by 1`, [env]),
     query(`select day::text, downloads from cp_download_daily where env = $1 and day > current_date - 30 order by day`, [env]),
     query(
@@ -265,17 +371,49 @@ export async function adminStats() {
       [env],
     ),
     query(`select requests, tokens::text from cp_global_daily where day = current_date`),
+    query(
+      `select (select coalesce(sum(visitors), 0)::int from cp_visitor_daily where env = $1 and day = current_date) as visitors_today,
+              (select coalesce(sum(visitors), 0)::int from cp_visitor_daily where env = $1 and day > current_date - 30) as visitors_30d,
+              (select coalesce(sum(views), 0)::int from cp_pageview_daily where env = $1 and day = current_date) as views_today,
+              (select coalesce(sum(views), 0)::int from cp_pageview_daily where env = $1 and day > current_date - 30) as views_30d,
+              (select coalesce(sum(views), 0)::int from cp_pageview_daily where env = $1) as views_total,
+              -- Only days with traffic data, so downloads counted before tracking began don't inflate the rate.
+              (select coalesce(sum(dd.downloads), 0)::int from cp_download_daily dd
+                where dd.env = $1 and dd.day > current_date - 30
+                  and exists (select 1 from cp_visitor_daily v where v.env = dd.env and v.day = dd.day)) as downloads_30d`,
+      [env],
+    ),
+    query(`select day::text, visitors from cp_visitor_daily where env = $1 and day > current_date - 30`, [env]),
+    query(`select day::text, sum(views)::int as views from cp_pageview_daily where env = $1 and day > current_date - 30 group by day`, [env]),
+    query(
+      `select path, sum(views)::int as n from cp_pageview_daily where env = $1 and day > current_date - 30 group by path order by n desc limit 20`,
+      [env],
+    ),
+    query(
+      `select host, sum(visits)::int as n from cp_referrer_daily where env = $1 and day > current_date - 30 group by host order by n desc limit 20`,
+      [env],
+    ),
   ]);
   const a = activation.rows[0];
   const r = retention.rows[0];
   const w = weekly.rows[0];
   const t = totals.rows[0];
   const f = feedback.rows[0];
+  const tr = traffic.rows[0];
   const pct = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : null);
-  // One row per day with both numbers.
+  // One row per day with every number.
   const byDay = new Map();
-  for (const row of downloads.rows) byDay.set(row.day, { day: row.day, downloads: row.downloads, installs: 0 });
-  for (const row of installs.rows) byDay.set(row.day, { ...(byDay.get(row.day) || { day: row.day, downloads: 0 }), installs: row.installs });
+  const add = (rows, key) => {
+    for (const row of rows) {
+      const entry = byDay.get(row.day) || { day: row.day, visitors: 0, views: 0, downloads: 0, installs: 0 };
+      entry[key] = row[key];
+      byDay.set(row.day, entry);
+    }
+  };
+  add(visitorsByDay.rows, 'visitors');
+  add(viewsByDay.rows, 'views');
+  add(downloads.rows, 'downloads');
+  add(installs.rows, 'installs');
   return {
     environment: env,
     totals: {
@@ -285,7 +423,17 @@ export async function adminStats() {
       downloadsToday: t.downloads_today,
       downloadToInstall: pct(t.installs_total, t.downloads_total),
     },
-    installsByDay: [...byDay.values()].sort((x, y) => x.day.localeCompare(y.day)),
+    traffic: {
+      visitorsToday: tr.visitors_today,
+      visitors30d: tr.visitors_30d,
+      viewsToday: tr.views_today,
+      views30d: tr.views_30d,
+      viewsTotal: tr.views_total,
+      visitToDownload30d: pct(tr.downloads_30d, tr.visitors_30d),
+      topPages30d: pages.rows,
+      topReferrers30d: referrers.rows,
+    },
+    installsByDay: [...byDay.values()].sort((x, y) => y.day.localeCompare(x.day)),
     activationRate: pct(a.activated, a.installs),
     retentionD7: pct(r.retained7, r.eligible7),
     retentionD30: pct(r.retained30, r.eligible30),

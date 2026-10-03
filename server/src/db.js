@@ -123,6 +123,34 @@ const MIGRATIONS = [
      downloads integer not null default 0,
      primary key (day, env)
    )`,
+  // Website traffic: page views per route, unique visitors (one per network
+  // per day) and referring sites. Hostnames and route names only.
+  `create table if not exists cp_visit_seen (
+     day date not null default current_date,
+     ip_hash text not null,
+     env text not null,
+     primary key (day, ip_hash, env)
+   )`,
+  `create table if not exists cp_visitor_daily (
+     day date not null default current_date,
+     env text not null,
+     visitors integer not null default 0,
+     primary key (day, env)
+   )`,
+  `create table if not exists cp_pageview_daily (
+     day date not null default current_date,
+     env text not null,
+     path text not null,
+     views integer not null default 0,
+     primary key (day, env, path)
+   )`,
+  `create table if not exists cp_referrer_daily (
+     day date not null default current_date,
+     env text not null,
+     host text not null,
+     visits integer not null default 0,
+     primary key (day, env, host)
+   )`,
   `create table if not exists cp_rate_limits (
      key text not null,
      window_start timestamptz not null,
@@ -145,4 +173,7 @@ export async function pruneOldUsage() {
   await query(`delete from cp_feedback where created_at < now() - interval '365 days'`);
   await query(`delete from cp_rate_limits where window_start < now() - interval '1 day'`);
   await query(`delete from cp_download_seen where day < current_date - 2`);
+  await query(`delete from cp_visit_seen where day < current_date - 2`);
+  await query(`delete from cp_pageview_daily where day < current_date - 365`);
+  await query(`delete from cp_referrer_daily where day < current_date - 365`);
 }

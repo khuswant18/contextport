@@ -74,11 +74,26 @@ img { max-width: 100%; display: block; }
 .nav-links a { font-size: 15px; font-weight: 500; text-decoration: none; color: var(--body); }
 .nav-links a:hover, .nav-links a[aria-current='page'] { color: var(--ink); }
 .nav-cta { display: flex; gap: 8px; }
+.nav-social { display: flex; align-items: center; gap: 8px; }
+.icon-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; border-radius: 9999px; border: 1px solid var(--hairline-strong); color: var(--ink); text-decoration: none; transition: background .15s; }
+.icon-btn:hover { background: var(--strong); }
+/* Buy Me a Coffee's brand yellow stays the same in light and dark so it's always easy to spot. */
+.btn.coffee { background: #ffdd00; color: #0c0a09; border-color: transparent; font-weight: 600; }
+.btn.coffee:hover { background: #f5d000; }
+.btn svg { flex: none; }
 .menu-btn { display: none; margin-left: auto; width: 40px; height: 40px; border-radius: 9999px; border: 1px solid var(--hairline); background: var(--card); color: var(--ink); cursor: pointer; }
 .mobile-menu { display: none; }
+@media (max-width: 420px) {
+  .nav-social .coffee-label { display: none; }
+  .nav-social .btn.coffee { width: 40px; height: 40px; padding: 0; }
+}
 @media (max-width: 768px) {
   .nav-links, .nav-cta { display: none; }
-  .menu-btn { display: inline-grid; place-items: center; }
+  .nav-inner { gap: 8px; }
+  .nav-social { margin-left: auto; }
+  .nav-social .icon-btn { display: none; }
+  .menu-btn { display: inline-grid; place-items: center; margin-left: 0; }
+  .mobile-menu .mobile-social { display: flex; align-items: center; gap: 10px; }
   .mobile-menu.open { display: grid; gap: 4px; padding: 8px 16px 16px; border-bottom: 1px solid var(--hairline); }
   .mobile-menu a { padding: 12px 8px; text-decoration: none; font-weight: 500; border-radius: 10px; }
   .mobile-menu .btn { margin-top: 8px; }
@@ -190,7 +205,13 @@ img { max-width: 100%; display: block; }
 
 /* footer */
 .footer { padding: 64px 0 48px; border-top: 1px solid var(--hairline); }
-.footer-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 32px; }
+.footer-grid { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 32px; }
+.support-band { display: flex; align-items: center; justify-content: space-between; gap: 20px 32px; flex-wrap: wrap; padding: 24px 28px; margin-bottom: 48px; border-radius: 20px; background: var(--card); border: 1px solid var(--hairline); }
+.support-band h3 { margin: 0 0 4px; font-family: var(--serif); font-weight: 300; font-size: 28px; line-height: 1.15; }
+.support-band p { margin: 0; color: var(--body); }
+.support-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.footer .support-actions .btn { color: var(--ink); font-size: 15px; }
+.footer .support-actions .btn.coffee { color: #0c0a09; }
 .footer h4 { font-size: 12px; font-weight: 600; letter-spacing: .96px; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
 .footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .footer a { font-size: 15px; color: var(--body); text-decoration: none; }
@@ -243,6 +264,12 @@ img { max-width: 100%; display: block; }
 .admin-login { display: grid; gap: 10px; max-width: 420px; margin-top: 24px; }
 .admin-login .input, .admin .input { height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--hairline-strong); background: var(--card); color: var(--ink); font: inherit; }
 .admin .error { color: #dc2626; margin: 0; }
+.admin-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-actions { display: flex; gap: 8px; }
+.admin-section { margin: 40px 0 0; }
+.table-scroll { max-height: 420px; overflow-y: auto; }
+.table td.empty { text-transform: none; color: var(--muted); }
+.table td.path { text-transform: none; font-family: var(--mono); font-size: 13px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px; }
 @media (max-width: 900px) { .grid-4, .grid-2 { grid-template-columns: 1fr 1fr; } }

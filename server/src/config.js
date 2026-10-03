@@ -46,6 +46,11 @@ export const config = {
   sharesPerDevicePerDay: int('SHARES_PER_DEVICE_PER_DAY', 30),
   /** Bearer token for GET /api/v1/admin/stats (32+ chars). Unset = admin API disabled. */
   adminToken: process.env.ADMIN_TOKEN || '',
+  /** Sign-in for the /admin page. Override both in the host's secret settings. */
+  adminUsername: process.env.ADMIN_USERNAME || 'admin',
+  adminPassword: process.env.ADMIN_PASSWORD || '12345678',
+  /** How long an /admin sign-in lasts. */
+  adminSessionHours: int('ADMIN_SESSION_HOURS', 12),
 
   /** Optional: lock the API to your published extension ID(s). */
   allowedExtensionIds: list('ALLOWED_EXTENSION_IDS', []),

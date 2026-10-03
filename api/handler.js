@@ -9,7 +9,8 @@ let ready = null;
 function init() {
   ready ??= (async () => {
     assertConfig();
-    const { rows } = await query(`select to_regclass('public.cp_download_daily') as t`);
+    // Check for the newest table; migrations are idempotent.
+    const { rows } = await query(`select to_regclass('public.cp_referrer_daily') as t`);
     if (!rows[0].t) await migrate();
   })().catch((err) => {
     ready = null;

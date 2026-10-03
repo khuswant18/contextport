@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Home from './pages/Home.jsx';
 import Install from './pages/Install.jsx';
 import Help from './pages/Help.jsx';
@@ -6,7 +6,7 @@ import Privacy from './pages/Privacy.jsx';
 import Terms from './pages/Terms.jsx';
 import Share from './pages/Share.jsx';
 import Admin from './pages/Admin.jsx';
-import { Icon } from './ui.jsx';
+import { Icon, XLogo, LINKS } from './ui.jsx';
 
 const ROUTES = {
   '/': { title: 'ContextPort — Move AI chats between ChatGPT, Claude & Gemini', Page: Home },
@@ -45,6 +45,20 @@ export default function App() {
     setMenu(false);
   }, [route, path]);
 
+  // First-party page-view count for /admin (route name + referring site only).
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (clean === '/admin') return;
+    const ref = firstView.current ? document.referrer : '';
+    firstView.current = false;
+    fetch('/api/v1/pv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: clean, ref }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [clean]);
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -82,6 +96,15 @@ export default function App() {
             {link('/#privacy', 'Privacy')}
             {link('/help', 'Help')}
           </nav>
+          <div className="nav-social">
+            <a className="icon-btn" href={LINKS.x} target="_blank" rel="noopener noreferrer" aria-label={`Follow ${LINKS.xHandle} on X`} title={`Follow ${LINKS.xHandle} on X`}>
+              <XLogo />
+            </a>
+            <a className="btn coffee small" href={LINKS.coffee} target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee">
+              <Icon name="coffee" />
+              <span className="coffee-label">Buy me a coffee</span>
+            </a>
+          </div>
           <div className="nav-cta">
             <a className="btn primary small" href="/install">Get it free</a>
           </div>
@@ -93,6 +116,9 @@ export default function App() {
           {link('/#how', 'How it works')}
           {link('/#privacy', 'Privacy')}
           {link('/help', 'Help')}
+          <a href={LINKS.x} target="_blank" rel="noopener noreferrer" className="mobile-social">
+            <XLogo /> Follow {LINKS.xHandle}
+          </a>
           <a className="btn primary" href="/install">Get it free</a>
         </div>
       </header>
@@ -112,6 +138,20 @@ export default function App() {
 
       <footer className="footer">
         <div className="wrap">
+          <div className="support-band">
+            <div>
+              <h3>Enjoying ContextPort?</h3>
+              <p>It's free and made by one person. A coffee keeps the AI briefs running.</p>
+            </div>
+            <div className="support-actions">
+              <a className="btn coffee" href={LINKS.coffee} target="_blank" rel="noopener noreferrer">
+                <Icon name="coffee" /> Buy me a coffee
+              </a>
+              <a className="btn" href={LINKS.x} target="_blank" rel="noopener noreferrer">
+                <XLogo /> Follow on X
+              </a>
+            </div>
+          </div>
           <div className="footer-grid">
             <div>
               <a href="/" className="brand">
@@ -142,6 +182,13 @@ export default function App() {
               <ul>
                 <li><a href="/privacy">Privacy</a></li>
                 <li><a href="/terms">Terms</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connect</h4>
+              <ul>
+                <li><a href={LINKS.x} target="_blank" rel="noopener noreferrer">X (Twitter)</a></li>
+                <li><a href={LINKS.coffee} target="_blank" rel="noopener noreferrer">Buy me a coffee</a></li>
               </ul>
             </div>
           </div>

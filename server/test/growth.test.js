@@ -19,6 +19,7 @@ const EXT = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
 before(async () => {
   config.adminToken = 'test-admin-token-'.padEnd(40, 'x');
   await migrate();
+  await query(`delete from cp_rate_limits where key like 'admin:%'`); // repeated runs must not hit the sign-in limit
   server = http.createServer(handle);
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -151,6 +152,60 @@ test('admin stats require the admin token', async () => {
   assert.equal(r.status, 200);
   const j = await r.json();
   assert.ok('activationRate' in j && 'retentionD7' in j && Array.isArray(j.featureUseLast7d));
+});
+
+test('admin sign-in issues an HttpOnly session cookie that unlocks stats', async () => {
+  const login = (body) => fetch(`${base}/api/v1/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal((await login({ username: config.adminUsername, password: 'wrong-password' })).status, 401);
+  assert.equal((await login({ username: 'someone', password: config.adminPassword })).status, 401);
+  assert.equal((await login({})).status, 401);
+
+  const ok = await login({ username: config.adminUsername, password: config.adminPassword });
+  assert.equal(ok.status, 200);
+  const setCookie = ok.headers.get('set-cookie') || '';
+  assert.match(setCookie, /^cp_admin=\d+\.[A-Za-z0-9_-]{43};/);
+  assert.match(setCookie, /HttpOnly/);
+  assert.match(setCookie, /SameSite=Strict/);
+  assert.match(setCookie, /Path=\/api\/v1\/admin/);
+  const session = setCookie.split(';')[0];
+
+  const r = await fetch(`${base}/api/v1/admin/stats`, { headers: { Cookie: session } });
+  assert.equal(r.status, 200);
+  assert.ok('traffic' in (await r.json()));
+
+  // Tampered, expired or forged sessions are rejected.
+  const [, value] = session.split('=');
+  const [exp, sig] = value.split('.');
+  const tampered = `cp_admin=${Number(exp) + 999}.${sig}`;
+  assert.equal((await fetch(`${base}/api/v1/admin/stats`, { headers: { Cookie: tampered } })).status, 401);
+  assert.equal((await fetch(`${base}/api/v1/admin/stats`, { headers: { Cookie: `cp_admin=1.${sig}` } })).status, 401);
+  assert.equal((await fetch(`${base}/api/v1/admin/stats`, { headers: { Cookie: 'cp_admin=garbage' } })).status, 401);
+
+  const out = await fetch(`${base}/api/v1/admin/logout`, { method: 'POST' });
+  assert.match(out.headers.get('set-cookie') || '', /cp_admin=; .*Max-Age=0/);
+});
+
+test('page views are counted by route name and referring host only', async () => {
+  const pv = (body, headers = {}) =>
+    fetch(`${base}/api/v1/pv`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  const views = async (path) =>
+    (await query(`select coalesce(sum(views), 0)::int as n from cp_pageview_daily where env = 'development' and day = current_date and path = $1`, [path])).rows[0].n;
+  const refs = async (host) =>
+    (await query(`select coalesce(sum(visits), 0)::int as n from cp_referrer_daily where env = 'development' and day = current_date and host = $1`, [host])).rows[0].n;
+
+  const [home, share, missing, ref] = [await views('/'), await views('/s/*'), await views('/404'), await refs('news.ycombinator.com')];
+  assert.equal((await pv({ path: '/', ref: 'https://news.ycombinator.com/item?id=1' })).status, 204);
+  assert.equal((await pv({ path: '/s/abcdefghijklmnopqrstuv' })).status, 204);
+  assert.equal((await pv({ path: '/wp-admin.php?x=<script>' })).status, 204);
+  assert.equal((await pv({ path: '/admin' })).status, 204);
+  assert.equal((await pv({ path: '/' }, { 'User-Agent': 'Googlebot/2.1' })).status, 204);
+  assert.equal((await pv({ path: 42 })).status, 400);
+
+  assert.equal(await views('/'), home + 1, 'bots are not counted');
+  assert.equal(await views('/s/*'), share + 1, 'share IDs are never stored');
+  assert.equal(await views('/404'), missing + 1, 'unknown paths are bucketed');
+  assert.equal(await views('/admin'), 0, '/admin is never counted');
+  assert.equal(await refs('news.ycombinator.com'), ref + 1, 'only the hostname is kept');
 });
 
 test('download route redirects to zip and increments download counter', async () => {

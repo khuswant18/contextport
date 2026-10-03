@@ -13,7 +13,7 @@ import { hostedComplete } from './groq.js';
 import { createBrief } from '../../shared/pipeline.js';
 import { PLATFORM_IDS, LIMITS, DETAIL_LEVELS } from '../../shared/constants.js';
 import { DbRateLimiter } from './ratelimit.js';
-import { createShare, readShare, deleteShare, getReferral, redeemReferral, recordFeedback, recordEvents, checkAdmin, adminStats, recordDownload } from './growth.js';
+import { createShare, readShare, deleteShare, getReferral, redeemReferral, recordFeedback, recordEvents, checkAdmin, adminStats, recordDownload, adminLogin, adminLogoutCookie, recordPageView } from './growth.js';
 
 // Cheap per-instance flood guard; the limits that protect money and abuse
 // live in Postgres so they also hold on serverless hosts.
@@ -22,6 +22,7 @@ const registerLimiter = new DbRateLimiter({ name: 'reg', windowMs: 60 * 60_000, 
 const briefLimiter = new DbRateLimiter({ name: 'brief', windowMs: 60_000, max: 6 });
 const writeLimiter = new DbRateLimiter({ name: 'write', windowMs: 60_000, max: 30 }); // shares, feedback, events, referrals
 const redeemLimiter = new DbRateLimiter({ name: 'redeem', windowMs: 60 * 60_000, max: 10 });
+const adminLoginLimiter = new DbRateLimiter({ name: 'admin', windowMs: 15 * 60_000, max: 10 });
 const SHARE_PATH = /^\/api\/v1\/shares\/([A-Za-z0-9_-]{1,64})$/;
 
 function checkOrigin(req) {
@@ -52,6 +53,26 @@ async function handleApi(req, res, url) {
     if (req.method === 'GET') await recordDownload(hashIp(ip)).catch((err) => console.warn('[download] not counted:', err.message));
     res.writeHead(302, { Location: '/contextport-extension.zip', 'Cache-Control': 'no-store' });
     return res.end();
+  }
+  // Website page views (same origin). Counting must never break the page.
+  if (url.pathname === '/api/v1/pv' && req.method === 'POST') {
+    const body = await readJson(req, 4_000);
+    await recordPageView(hashIp(ip), body, { userAgent: req.headers['user-agent'], siteHost: req.headers.host }).catch((err) => {
+      if (err instanceof HttpError) throw err;
+      console.warn('[pv] not counted:', err.message);
+    });
+    res.writeHead(204, { 'Cache-Control': 'no-store' });
+    return res.end();
+  }
+  if (url.pathname === '/api/v1/admin/login' && req.method === 'POST') {
+    await adminLoginLimiter.check(`admin:${ip}`);
+    const cookie = adminLogin(await readJson(req, 2_000));
+    res.setHeader('Set-Cookie', cookie);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (url.pathname === '/api/v1/admin/logout' && req.method === 'POST') {
+    res.setHeader('Set-Cookie', adminLogoutCookie());
+    return sendJson(res, 200, { ok: true });
   }
   if (url.pathname === '/api/v1/admin/stats' && req.method === 'GET') {
     checkAdmin(req);

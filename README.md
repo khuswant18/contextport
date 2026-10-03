@@ -41,7 +41,7 @@ Anti-abuse on invites:
 - A code can't be redeemed by its own install, or from the same network as the referrer.
 - A referrer earns bonuses for at most 10 friends.
 
-Admin metrics need `ADMIN_TOKEN` (32+ characters) set on the server. Open `https://your-domain/admin` and paste the token.
+Admin metrics: open `https://your-domain/admin` and sign in with `ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults `admin` / `12345678`; set your own on the host). The session is an HttpOnly cookie, valid for 12 hours, and sign-in is limited to 10 attempts per 15 minutes per network. The dashboard covers website traffic (visitors, page views, top pages, referring sites), downloads, installs and engagement. Scripts can still call `GET /api/v1/admin/stats` with `Authorization: Bearer <ADMIN_TOKEN>` (32+ characters).
 
 Store listing assets are generated with `node tools/store-assets.mjs` (the server must be running). It writes to `store-assets/`:
 - 5 screenshots at 1280×800

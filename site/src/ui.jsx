@@ -13,7 +13,23 @@ const PATHS = {
   download: ['M12 4v11', 'M7 10l5 5 5-5', 'M5 20h14'],
   play: ['M8 5.5v13l10.5-6.5z'],
   pause: ['M9 5.5v13', 'M15 5.5v13'],
+  coffee: ['M4.5 9h11v4.5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z', 'M15.5 10.5h1.5a2.5 2.5 0 0 1 0 5h-1.8', 'M8.5 3.5v2.5', 'M12 3.5v2.5'],
 };
+
+export const LINKS = {
+  x: 'https://x.com/KhuswantRa45688',
+  xHandle: '@KhuswantRa45688',
+  coffee: 'https://buymeacoffee.com/khuswant18',
+};
+
+/** The X (Twitter) mark: a filled logo, unlike the stroked icons above. */
+export function XLogo({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
 
 export function Icon({ name }) {
   return (

@@ -60,6 +60,11 @@ export default function Privacy() {
           page path, referrer, country and device type. Share-link pages and the admin page are never reported, and links are sent without
           anything after the “?” or “#”. The extension itself doesn’t use it.
         </p>
+        <p>
+          We also keep our own daily totals: page views per page (share links are counted as one page, never by ID), the number of
+          unique visitors per day, and the name of the website that linked to us (for example “google.com”, never the full address).
+          To count a visitor once per day we store a one-way keyed hash of the network address, deleted after two days. No cookies are set.
+        </p>
 
         <h2>Invites</h2>
         <p>Invite codes are random and linked only to an anonymous install. We store which install invited which, to add bonus transfers.</p>
